@@ -1,27 +1,27 @@
 import re
 import asyncio
+import aiohttp
 from telethon import TelegramClient, events
 from telethon.errors import SessionPasswordNeededError
 
 # Define the API ID, API hash, and phone number for the Telegram client
-api_id = ____
-api_hash = 'api hash here'
-phone_number = 'phone number'
+api_id = 'YOUR_API_ID'
+api_hash = 'YOUR_API_HASH'
+phone_number = 'YOUR_PHONE_NUMBER'
 
-# Define the source and destination chat IDs
-source_chat_id = 
-destination_chat_id = 
+# Define the source chat ID
+source_chat_id = 'SOURCE_CHAT_ID'
+
+# URL of the JavaScript bot server
+sniper_bot_url = 'http://localhost:3000/buy'
 
 # Set to store seen contract addresses
 seen_contract_addresses = set()
 
 # Function to extract phrases from a message
 def extract_phrases(message):
-    # Extract text from message
     text = message.raw_text
-    if re.search(r'#1|#2|#3', text) and '🚨' not in text:
-        return True
-    return False
+    return bool(re.search(r'#1|#2|#3', text) and '🚨' not in text)
 
 # Function to extract liquidity percentage from message
 def extract_liquidity_percentage(message_text):
@@ -29,8 +29,7 @@ def extract_liquidity_percentage(message_text):
     liquidity_line = next((line for line in lines if 'Liq' in line), None)
     if liquidity_line:
         try:
-            liquidity_percentage = float(liquidity_line.split('(')[-1].split('%')[0])
-            return liquidity_percentage
+            return float(liquidity_line.split('(')[-1].split('%')[0])
         except (ValueError, IndexError):
             pass
     return None
@@ -38,9 +37,7 @@ def extract_liquidity_percentage(message_text):
 # Function to extract contract address from message
 def extract_contract_address(message_text):
     match = re.search(r'[a-zA-Z0-9]{30,50}', message_text)
-    if match:
-        return match.group(0)
-    return None
+    return match.group(0) if match else None
 
 # Initialize the Telegram client
 client = TelegramClient('session_name', api_id, api_hash)
@@ -59,25 +56,21 @@ async def handler(event):
 
         # Extract contract address from message
         contract_address = extract_contract_address(message_text)
-
-        if contract_address:
-            if contract_address not in seen_contract_addresses:
-                # Send only the contract address
-                await client.send_message(destination_chat_id, contract_address)
-                # Print the forwarded contract address
-                print(f"Forwarded contract address: {contract_address}")
-                # Add contract address to seen set
-                seen_contract_addresses.add(contract_address)
-            else:
-                print(f"Ignored duplicate contract address: {contract_address}")
+        if contract_address and contract_address not in seen_contract_addresses:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(sniper_bot_url, json={'contractAddress': contract_address}) as resp:
+                    if resp.status == 200:
+                        print(f"Forwarded contract address: {contract_address}")
+                        seen_contract_addresses.add(contract_address)
+                    else:
+                        print(f"Failed to forward contract address: {contract_address}, Status: {resp.status}")
         else:
-            print("No contract address found in message")
+            print(f"Duplicate or no contract address found in message")
 
 async def main():
     await client.start(phone_number)
     print("Client started")
 
-    # Ensure you're logged in
     if not await client.is_user_authorized():
         try:
             await client.send_code_request(phone_number)
@@ -86,8 +79,6 @@ async def main():
             await client.sign_in(password=input('Password: '))
 
     print("Client authorized")
-
-    # Run the client until disconnected
     await client.run_until_disconnected()
     print("Client disconnected")
 
