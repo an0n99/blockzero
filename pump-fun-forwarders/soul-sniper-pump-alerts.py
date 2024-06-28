@@ -4,15 +4,19 @@ from telethon.sync import TelegramClient, events
 from rich.console import Console
 import re
 import time
+import requests
 
 # Your API credentials
-api_id = API 
-api_hash = 'API HASH'
-phone_number = 'PHONE NUMBER'
+api_id = 'API_ID'
+api_hash = 'API_HASH'
+phone_number = 'PHONE_NUMBER'
 
 # Source chat ID and destination chat username
-source_chat_id = SOURCE ID
+source_chat_id = 'SOURCE_ID'
 destination_chat_username = 'NAME'  # replace with the actual username or ID
+
+# Sniper bot's buy endpoint URL
+sniper_bot_buy_url = 'http://localhost:3000/buy'
 
 # Initialize the console for formatted output
 console = Console()
@@ -60,13 +64,24 @@ class MessageForwarder:
                                     self.contract_addresses[contract_address] = True
                                     console.print(f"Contract address stored: {contract_address}")
 
+                                # Forward the message to the destination chat
+                                await client.send_message(destination_chat_id, message_text)
+                                console.print(f"Message forwarded to destination chat: {message_text}")
+
                             elif top10_percentage is not None and top10_percentage >= 50:
-                                console.print("Fuck it")
+                                console.print("Top 10 percentage is 50% or higher, ignoring.")
 
                             elif contract_address and contract_address in self.contract_addresses:
-                                # Send the contract address immediately to the destination chat
-                                await client.send_message(destination_chat_id, f"Contract Address: {contract_address}")
-                                console.print(f"Contract address extracted and sent: {contract_address}")
+                                # Send the contract address immediately to the sniper bot
+                                response = requests.post(sniper_bot_buy_url, json={"contractAddress": contract_address})
+                                if response.status_code == 200:
+                                    console.print(f"Contract address extracted and sent: {contract_address}")
+                                else:
+                                    console.print(f"Failed to send contract address: {response.status_code}")
+
+                                # Forward the message to the destination chat
+                                await client.send_message(destination_chat_id, message_text)
+                                console.print(f"Message forwarded to destination chat: {message_text}")
 
                                 # Remove the contract address from memory
                                 del self.contract_addresses[contract_address]
