@@ -2,17 +2,17 @@
   "name": "simple-raydium-sniper",
   "version": "1.1.2",
   "description": "A script to sniper tokens on raydium",
-  "main": "index.js",
+  "main": "sniper.js",
   "scripts": {
     "start": "node sniper.js"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "latest", // Latest version
-    "@solana/web3.js": "latest", // Latest version
-    "cross-fetch": "latest", // Latest version
-    "dotenv": "latest", // Latest version
-    "prompt-sync": "latest", // Latest version
-    "bs58": "latest" // Latest version
+    "@coral-xyz/anchor": "latest", 
+    "@solana/web3.js": "latest", 
+    "cross-fetch": "latest", 
+    "dotenv": "latest",
+    "prompt-sync": "latest", 
+    "bs58": "latest" 
   },
   "author": "BlockZero",
   "license": "MIT"
