@@ -1,5 +1,4 @@
-import { getMarginfiClient } from "./utils";
-import { VersionedTransaction, Connection, Keypair } from '@solana/web3.js';
+import { Connection, Keypair, VersionedTransaction, TransactionInstruction } from '@solana/web3.js';
 import bs58 from "bs58";
 import fetch from 'node-fetch';
 import inquirer from 'inquirer';
@@ -7,7 +6,8 @@ import inquirer from 'inquirer';
 const RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
 const web3Connection = new Connection(RPC_ENDPOINT, 'confirmed');
 
-async function flashLoanBuy(mint: string, buyerPublicKey: string, amountInSol: number, slippagePercent: number, priorityFee: number, privateKey: string) {
+async function flashLoanBuy(mint, buyerPublicKey, amountInSol, slippagePercent, priorityFee, privateKey) {
+    // Send a request to the pumpdata.fun API to get the buy transaction
     const response = await fetch(`https://api.pumpdata.fun/buy`, {
         method: "POST",
         headers: {
@@ -23,11 +23,15 @@ async function flashLoanBuy(mint: string, buyerPublicKey: string, amountInSol: n
     });
 
     if (response.status === 200) {
+        // Deserialize the transaction data
         const data = await response.arrayBuffer();
         const tx = VersionedTransaction.deserialize(new Uint8Array(data));
         const signerKeyPair = Keypair.fromSecretKey(bs58.decode(privateKey));
 
+        // Sign the transaction with your private key
         tx.sign([signerKeyPair]);
+
+        // Send the signed transaction to the Solana network
         const signature = await web3Connection.sendTransaction(tx);
 
         console.log("Transaction: https://solscan.io/tx/" + signature);
@@ -36,7 +40,8 @@ async function flashLoanBuy(mint: string, buyerPublicKey: string, amountInSol: n
     }
 }
 
-async function flashLoanSell(mint: string, sellerPublicKey: string, tokens: number, slippagePercent: number, priorityFee: number, privateKey: string) {
+async function flashLoanSell(mint, sellerPublicKey, tokens, slippagePercent, priorityFee, privateKey) {
+    // Send a request to the pumpdata.fun API to get the sell transaction
     const response = await fetch(`https://api.pumpdata.fun/sell`, {
         method: "POST",
         headers: {
@@ -52,11 +57,15 @@ async function flashLoanSell(mint: string, sellerPublicKey: string, tokens: numb
     });
 
     if (response.status === 200) {
+        // Deserialize the transaction data
         const data = await response.arrayBuffer();
         const tx = VersionedTransaction.deserialize(new Uint8Array(data));
         const signerKeyPair = Keypair.fromSecretKey(bs58.decode(privateKey));
 
+        // Sign the transaction with your private key
         tx.sign([signerKeyPair]);
+
+        // Send the signed transaction to the Solana network
         const signature = await web3Connection.sendTransaction(tx);
 
         console.log("Transaction: https://solscan.io/tx/" + signature);
@@ -66,29 +75,7 @@ async function flashLoanSell(mint: string, sellerPublicKey: string, tokens: numb
 }
 
 async function main() {
-    const client = await getMarginfiClient({ readonly: true });
-
-    const marginfiAccounts = await client.getMarginfiAccountsForAuthority();
-    if (marginfiAccounts.length === 0) throw Error("No marginfi account found");
-
-    const marginfiAccount = marginfiAccounts[0];
-
-    const solBank = client.getBankByTokenSymbol("SOL");
-    if (!solBank) throw Error("SOL bank not found");
-
-    const amount = 10; // SOL
-
-    const borrowIx = await marginfiAccount.makeBorrowIx(amount, solBank.address);
-    const repayIx = await marginfiAccount.makeRepayIx(amount, solBank.address, true);
-
-    const flashLoanTx = await marginfiAccount.buildFlashLoanTx({
-        ixs: [...borrowIx.instructions, ...repayIx.instructions],
-        signers: [],
-    });
-
-    await client.processTransaction(flashLoanTx);
-
-    // Interactive command line prompt
+    // Interactive command line prompt to get user inputs
     const answers = await inquirer.prompt([
         { type: 'input', name: 'mint', message: 'Enter the token mint address:' },
         { type: 'input', name: 'publicKey', message: 'Enter your public Solana wallet key:' },
