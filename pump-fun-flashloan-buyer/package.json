@@ -1,0 +1,18 @@
+{
+  "name": "solana-flash-loan",
+  "version": "1.2.1",
+  "description": "A script to perform flash loans and buy/sell tokens on pump.fun",
+  "main": "script.js",
+  "scripts": {
+    "start": "node script.js"
+  },
+  "dependencies": {
+    "@solana/web3.js": "latest",
+    "bs58": "latest",
+    "commander": "latest",
+    "inquirer": "latest",
+    "node-fetch": "latest"
+  },
+  "author": "BlockZero",
+  "license": "ISC"
+}
