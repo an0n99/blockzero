@@ -19,8 +19,14 @@ const slippageBps = parseInt(process.env.SLIPPAGE_BPS || "50", 10);
 
 let connection = new Connection(rpcUrl, "confirmed");
 
+
+const privateKey = bs58.decode(process.env.PRIVATE_KEY || "");
+if (privateKey.length !== 64) {
+  throw new Error("Invalid private key length. Must be 64 bytes.");
+}
+
 const wallet = new Wallet(
-  Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY || ""))
+  Keypair.fromSecretKey(privateKey)
 );
 
 async function getSwapQuote(inputMint, outputMint, amountSOL) {
@@ -48,7 +54,7 @@ async function swapTokens(inputMint, outputMint, amountSOL) {
           quoteResponse,
           userPublicKey: wallet.publicKey.toString(),
           wrapAndUnwrapSol: true,
-          feeAccount: "",  
+          feeAccount: "",  // Optional, leave empty if not using a fee account
         }),
       })
     ).json();
@@ -81,10 +87,9 @@ async function swapTokens(inputMint, outputMint, amountSOL) {
 async function main() {
   const prompt = promptSync(); // For command-line input
 
-  // Get the token mint address from the user
+
   const tokenMintAddress = new PublicKey(prompt("Enter the token address (CA) for the swap: "));
 
-  // Get the amount of SOL to spend for the token swap
   const amount = prompt(`Enter the amount of SOL to spend for the token swap (default: ${swapAmount}): `);
   const amountSOL = amount || swapAmount;
 
