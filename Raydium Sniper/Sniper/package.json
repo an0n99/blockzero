@@ -1,0 +1,20 @@
+{
+  "name": "solana-token-swap-bot",
+  "version": "1.0.0",
+  "description": "A bot to perform token swaps on Solana based on incoming contract addresses",
+  "main": "sniper.js",
+  "scripts": {
+    "start": "node sniper.js"
+  },
+  "author": "0xAn0n",
+  "license": "ISC",
+  "dependencies": {
+    "@coral-xyz/anchor": "latest",
+    "@solana/web3.js": "latest",
+    "bs58": "latest",
+    "cross-fetch": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "body-parser": "latest"
+  }
+}
