@@ -1,0 +1,167 @@
+import re
+from telethon import TelegramClient, events
+
+# Function to extract contract address from message
+def extract_contract_address(message_text):
+    match = re.search(r'[a-zA-Z0-9]{30,50}', message_text)
+    if match:
+        return match.group(0)
+    return None
+
+# Function to extract liquidity percentage from message
+def extract_liquidity_percentage(message_text):
+    match = re.search(r'💧.*\(([\d.]+)% MC\)', message_text)
+    if match:
+        return float(match.group(1))
+    return None
+
+# Function to extract 24h price change percentage
+def extract_price_change(message_text):
+    match = re.search(r'24H: (🔴|🟢) ([\d,.]+[KMB]?)%', message_text)
+    if match:
+        direction = match.group(1)
+        percentage_str = match.group(2)
+
+        # Remove commas from the number string
+        percentage_str = percentage_str.replace(',', '')
+
+        # Handle K, M, B suffixes for thousand, million, billion
+        multiplier = 1
+        if percentage_str[-1] == 'K':
+            multiplier = 1e3
+        elif percentage_str[-1] == 'M':
+            multiplier = 1e6
+        elif percentage_str[-1] == 'B':
+            multiplier = 1e9
+
+        # Strip the suffix and convert to float
+        percentage = float(percentage_str[:-1]) * multiplier if multiplier != 1 else float(percentage_str)
+
+        return (direction, percentage)
+    return None
+
+# Function to extract 24h volume information
+def extract_volume(message_text):
+    match = re.search(r'24H: \$([\d,.]+[KMB]?)', message_text)
+    if match:
+        volume_str = match.group(1)
+
+        # Remove commas from the number string
+        volume_str = volume_str.replace(',', '')
+
+        # Handle K, M, B suffixes for thousand, million, billion
+        multiplier = 1
+        if volume_str[-1] == 'K':
+            multiplier = 1e3
+        elif volume_str[-1] == 'M':
+            multiplier = 1e6
+        elif volume_str[-1] == 'B':
+            multiplier = 1e9
+
+        # Strip the suffix and convert to float
+        volume = float(volume_str[:-1]) * multiplier if multiplier != 1 else float(volume_str)
+
+        return volume
+    return None
+
+# Function to check for red alert emoji conditions
+def check_red_alert_conditions(message_text):
+    red_alert_positions = [m.start() for m in re.finditer('🚨', message_text)]
+    if len(red_alert_positions) == 1 and '🚨 Very Low Liquidity' in message_text:
+        return True
+    if len(red_alert_positions) > 1:
+        return False
+    return True
+
+async def main():
+    # Your Telegram API credentials
+    api_id = ___
+    api_hash = '___'
+    phone_number = '___'  # Format: '+CountryCodePhoneNumber'
+
+    # Initialize the Telegram client
+    client = TelegramClient('session_name', api_id, api_hash)
+
+    # Connect to Telegram
+    await client.start(phone=phone_number)
+
+    source_chat_id = -___  # Source chat ID
+    destination_channel_username = '@soul_scanner_bot'  # Destination channel username
+    backup_channel_id = ____ # Backup channel ID
+
+    # Get the current bot's user ID
+    bot_user = await client.get_me()
+    bot_user_id = bot_user.id
+
+    # Function to handle replies in the destination chat
+    @client.on(events.NewMessage(chats=destination_channel_username))
+    async def reply_handler(event):
+        if event.is_reply:
+            original_message = await event.get_reply_message()
+            if original_message.sender_id == bot_user_id:
+                print(f"Reply message in destination chat: {event.text}")
+                # Check for red alert emoji conditions
+                if not check_red_alert_conditions(event.raw_text):
+                    print("Message contains invalid 🚨 emoji conditions, skipping backup forwarding.")
+                else:
+                    # Extract liquidity percentage
+                    liquidity_percentage = extract_liquidity_percentage(event.text)
+                    if liquidity_percentage is not None and liquidity_percentage > 5:
+                        # If the liquidity percentage is higher than 5%, send the contract address to backup channel
+                        await client.send_message(backup_channel_id, original_message.text)
+                        print(f"Contract address {original_message.text} sent to backup channel.")
+                    else:
+                        print("Liquidity percentage is not higher than 5%, skipping backup forwarding.")
+
+    # Set up event handler for new messages in the source chat
+    @client.on(events.NewMessage(chats=source_chat_id))
+    async def handler(event):
+        if "Token info updated" in event.raw_text:
+            print(f"Message received in source chat: {event.raw_text}")
+
+            contract_address = extract_contract_address(event.raw_text)
+            if contract_address:
+                print(f"Extracted contract address: {contract_address}")
+
+                # Extract 24h price change
+                price_change = extract_price_change(event.raw_text)
+                if price_change:
+                    direction, percentage = price_change
+                    print(f"24H Price Change: {direction} {percentage}%")
+
+                    # Extract 24h volume
+                    volume = extract_volume(event.raw_text)
+                    if volume:
+                        print(f"24H Volume: ${volume}")  # Print the identified 24h volume
+
+                        # Check conditions for forwarding contract address based on volume
+                        if volume >= 10000:  # 10K volume threshold
+                            # Check conditions for forwarding contract address based on price change
+                            if direction == '🔴':
+                                print("Red alert direction found, skipping forwarding.")
+                            elif direction == '🟢':
+                                if percentage >= 60.0:
+                                    try:
+                                        # Forward the contract address to the destination channel
+                                        await client.send_message(destination_channel_username, contract_address)
+                                        print(f"Contract address {contract_address} forwarded to destination channel.")
+                                    except Exception as e:
+                                        print(f"Error sending message to destination channel: {e}")
+                                else:
+                                    print(f"Green alert direction found, but percentage {percentage}% is below 60%, skipping forwarding.")
+                        else:
+                            print(f"Volume is lower than 10K, skipping forwarding. Volume: ${volume}")
+
+                    else:
+                        print("No valid 24H volume found in the message.")
+
+                else:
+                    print("No valid 24H price change found in the message.")
+
+    print("Listening for new messages in the source chat...")
+    await client.run_until_disconnected()
+
+if __name__ == '__main__':
+    import asyncio
+
+    asyncio.run(main())
